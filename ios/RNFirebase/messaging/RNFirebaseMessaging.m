@@ -106,28 +106,36 @@ didReceiveMessage:(nonnull FIRMessagingRemoteMessage *)remoteMessage {
 // *******************************************************
 
 // ** Start React Module methods **
-RCT_EXPORT_METHOD(getToken:(RCTPromiseResolveBlock)resolve rejecter:(RCTPromiseRejectBlock)reject) {
-  if (initialToken) {
-    resolve(initialToken);
-    initialToken = nil;
-  } else if ([[FIRMessaging messaging] FCMToken]) {
-    resolve([[FIRMessaging messaging] FCMToken]);
+RCT_EXPORT_METHOD(getToken:(NSString *)senderId resolver:(RCTPromiseResolveBlock)resolve rejecter:(RCTPromiseRejectBlock)reject) {
+  if (senderId) {
+    [self getTokenWithSenderId:senderId resolver:resolve rejecter:reject];
   } else {
-    NSString * senderId = [[FIRApp defaultApp] options].GCMSenderID;
-    [[FIRMessaging messaging] retrieveFCMTokenForSenderID:senderId completion:^(NSString * _Nullable FCMToken, NSError * _Nullable error) {
-        if (error) {
-            reject(@"messaging/fcm-token-error", @"Failed to retrieve FCM token.", error);
-        } else if (FCMToken) {
-            resolve(FCMToken);
-        } else {
-            resolve([NSNull null]);
-        }
-    }];
+    if (initialToken) {
+      resolve(initialToken);
+      initialToken = nil;
+    } else if ([[FIRMessaging messaging] FCMToken]) {
+      resolve([[FIRMessaging messaging] FCMToken]);
+    } else {
+      senderId = [[FIRApp defaultApp] options].GCMSenderID;
+      [self getTokenWithSenderId:senderId resolver:resolve rejecter:reject];
+    }
   }
 }
 
-RCT_EXPORT_METHOD(deleteToken:(RCTPromiseResolveBlock)resolve rejecter:(RCTPromiseRejectBlock)reject) {
-  NSString * senderId = [[FIRApp defaultApp] options].GCMSenderID;
+- (void)getTokenWithSenderId:(NSString *)senderId resolver:(RCTPromiseResolveBlock)resolve rejecter:(RCTPromiseRejectBlock)reject {
+  [[FIRMessaging messaging] retrieveFCMTokenForSenderID:senderId completion:^(NSString * _Nullable FCMToken, NSError * _Nullable error) {
+    if (error) {
+      reject(@"messaging/fcm-token-error", @"Failed to retrieve FCM token.", error);
+    } else if (FCMToken) {
+      resolve(FCMToken);
+    } else {
+      resolve([NSNull null]);
+    }
+  }];
+}
+
+RCT_EXPORT_METHOD(deleteToken:(NSString *)senderId resolver:(RCTPromiseResolveBlock)resolve rejecter:(RCTPromiseRejectBlock)reject) {
+  senderId = (senderId) ? senderId : [[FIRApp defaultApp] options].GCMSenderID;
   [[FIRMessaging messaging] deleteFCMTokenForSenderID:senderId completion:^(NSError * _Nullable error) {
     if (error) {
       reject(@"messaging/fcm-token-error", @"Failed to delete FCM token.", error);
@@ -136,7 +144,6 @@ RCT_EXPORT_METHOD(deleteToken:(RCTPromiseResolveBlock)resolve rejecter:(RCTPromi
     }
   }];
 }
-
 
 RCT_EXPORT_METHOD(getAPNSToken:(RCTPromiseResolveBlock)resolve rejecter:(RCTPromiseRejectBlock)reject) {
     NSData *apnsToken = [FIRMessaging messaging].APNSToken;
@@ -341,4 +348,3 @@ RCT_EXPORT_METHOD(jsInitialised:(RCTPromiseResolveBlock)resolve rejecter:(RCTPro
 @implementation RNFirebaseMessaging
 @end
 #endif
-
